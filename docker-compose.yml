@@ -1,0 +1,60 @@
+version: "3.7"
+
+services:
+  django:
+    build:
+      context: ./task
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 
+      POSTGRES_DB: weather
+      POSTGRES_HOST: db 
+    volumes:
+      - django_static_volume:/usr/src/app/staticfiles
+    expose:
+      - 8000
+    env_file:
+      - ./task/.env
+    command: gunicorn task.wsgi:application --bind 0.0.0.0:8000
+    depends_on:
+      - db
+  db:
+    image: postgres:12.0-alpine
+    
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 
+      POSTGRES_DB: weather
+      POSTGRES_HOST: db
+  react:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - API_SERVER=${ENV_API_SERVER}
+    volumes:
+      - react_static_volume:/usr/src/app/build/static
+    expose:
+      - 3000
+    env_file:
+      - .env
+    command: serve -s build -l 3000
+    depends_on:
+      - django
+
+  nginx:
+    restart: always
+    build: ./nginx
+    volumes:
+      - django_static_volume:/usr/src/app/staticfiles
+      - react_static_volume:/usr/src/app/build/static
+    ports:
+      - 80:80
+    depends_on:
+      - react
+
+volumes:
+  postgres_data:
+  django_static_volume:
+  react_static_volume:
